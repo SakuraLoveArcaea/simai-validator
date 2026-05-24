@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { validateSimaiFile } from './lib/index.js';
+import { validateSimaiFile } from 'simai-core';
 
 // ANSI Color Escape Codes
 const COLORS = {

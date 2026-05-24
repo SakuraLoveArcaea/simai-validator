@@ -24,13 +24,16 @@ export class Parser {
 
     advance() {
         if (!this.isAtEnd()) this.current++;
-        return this.tokens[this.current - 1];
+        const token = this.tokens[this.current - 1];
+        if (this.inSlideChain && this.slideTokens) {
+            this.slideTokens.add(token);
+        }
+        return token;
     }
 
     validate() {
-        // Pre-scan validation
-        this.checkConsecutiveButtons();
-        this.checkDuplicateBothStarts();
+        this.slideTokens = new Set();
+        this.inSlideChain = false;
 
         let hasE = false;
 
@@ -110,6 +113,10 @@ export class Parser {
                 snippet: ''
             });
         }
+
+        // Run validations that depend on parsing/slide tokens context
+        this.checkConsecutiveButtons();
+        this.checkDuplicateBothStarts();
 
         // Sort errors by line and column
         this.errors.sort((a, b) => {
@@ -224,89 +231,286 @@ export class Parser {
     }
 
     parseSlideChain(startToken) {
-        let chainActive = true;
+        this.inSlideChain = true;
+        try {
+            let chainActive = true;
 
-        while (chainActive && !this.isAtEnd()) {
-            const slideOp = this.advance(); // consume Slide operator (e.g. -)
-            
-            // Read target vertices for the first segment
-            let vertices = [];
-            while (!this.isAtEnd() && this.peek().type === TokenType.Location) {
-                vertices.push(this.advance());
-            }
-
-            if (vertices.length === 0) {
-                this.errors.push({
-                    line: slideOp.line,
-                    col: slideOp.col,
-                    message: `Slide 運算子 '${slideOp.value}' 缺少目標按鍵/感應區域。`,
-                    severity: 'Error',
-                    snippet: slideOp.value
-                });
-            } else if (slideOp.value === 'V' && vertices.length < 2) {
-                this.errors.push({
-                    line: slideOp.line,
-                    col: slideOp.col,
-                    message: `V 字形 Slide 運算子 '${slideOp.value}' 需要 2 個目標頂點（例如：'6V42'）。`,
-                    severity: 'Error',
-                    snippet: slideOp.value
-                });
-            }
-
-            // Read subsequent slide segments in the same path (multi-segment slide)
-            while (!this.isAtEnd() && this.peek().type === TokenType.Slide) {
-                const nextSlideOp = this.advance();
-                let nextVertices = [];
+            while (chainActive && !this.isAtEnd()) {
+                const slideOp = this.advance(); // consume Slide operator (e.g. -)
+                let hasDuration = false;
+                
+                // Read target vertices for the first segment
+                let vertices = [];
                 while (!this.isAtEnd() && this.peek().type === TokenType.Location) {
-                    nextVertices.push(this.advance());
+                    vertices.push(this.advance());
                 }
-                if (nextVertices.length === 0) {
-                    this.errors.push({
-                        line: nextSlideOp.line,
-                        col: nextSlideOp.col,
-                        message: `Slide 運算子 '${nextSlideOp.value}' 缺少目標按鍵/感應區域。`,
-                        severity: 'Error',
-                        snippet: nextSlideOp.value
-                    });
-                } else if (nextSlideOp.value === 'V' && nextVertices.length < 2) {
-                    this.errors.push({
-                        line: nextSlideOp.line,
-                        col: nextSlideOp.col,
-                        message: `V 字形 Slide 運算子 '${nextSlideOp.value}' 需要 2 個目標頂點（例如：'6V42'）。`,
-                        severity: 'Error',
-                        snippet: nextSlideOp.value
-                    });
-                }
-            }
 
-            // Optional duration block and/or decorators (modifiers) in any order
-            while (!this.isAtEnd()) {
-                const nextType = this.peek().type;
-                if (nextType === TokenType.Duration) {
-                    this.validateDurationBlock(this.advance());
-                } else if (nextType === TokenType.Decorator) {
-                    this.advance();
+                 if (vertices.length === 0) {
+                    this.errors.push({
+                        line: slideOp.line,
+                        col: slideOp.col,
+                        message: `Slide 運算子 '${slideOp.value}' 缺少目標按鍵/感應區域。`,
+                        severity: 'Error',
+                        snippet: slideOp.value
+                    });
+                } else if (slideOp.value === 'V') {
+                    if (vertices.length !== 2) {
+                        this.errors.push({
+                            line: slideOp.line,
+                            col: slideOp.col,
+                            message: `V 字形 Slide 運算子 'V' 需要剛好 2 個目標頂點（例如：'6V42'），但發現了 ${vertices.length} 個。`,
+                            severity: 'Error',
+                            snippet: slideOp.value + vertices.map(v => v.value).join('')
+                        });
+                    } else {
+                        this.validateSlidePath(startToken, slideOp, vertices);
+                    }
                 } else {
-                    break;
+                    if (vertices.length !== 1) {
+                        this.errors.push({
+                            line: slideOp.line,
+                            col: slideOp.col,
+                            message: `Slide 運算子 '${slideOp.value}' 後方只能接 1 個目標按鍵/感應區域（例如：'1${slideOp.value}5'），但發現了 ${vertices.length} 個（'${vertices.map(v => v.value).join('')}'）。`,
+                            severity: 'Error',
+                            snippet: slideOp.value + vertices.map(v => v.value).join('')
+                        });
+                    } else {
+                        this.validateSlidePath(startToken, slideOp, vertices);
+                    }
                 }
-            }
 
-            // Check if slide chain continues with a joiner '*'
-            if (!this.isAtEnd() && this.peek().type === TokenType.SlideJoiner) {
-                const joinerToken = this.advance(); // consume '*'
-                    if (this.isAtEnd() || this.peek().type !== TokenType.Slide) {
-                    const nextToken = this.peek();
+                let prevEndToken = vertices.length > 0 ? vertices[vertices.length - 1] : null;
+
+                // Read subsequent slide segments in the same path (multi-segment slide)
+                while (!this.isAtEnd() && this.peek().type === TokenType.Slide) {
+                    const nextSlideOp = this.advance();
+                    let nextVertices = [];
+                    while (!this.isAtEnd() && this.peek().type === TokenType.Location) {
+                        nextVertices.push(this.advance());
+                    }
+                    if (nextVertices.length === 0) {
+                        this.errors.push({
+                            line: nextSlideOp.line,
+                            col: nextSlideOp.col,
+                            message: `Slide 運算子 '${nextSlideOp.value}' 缺少目標按鍵/感應區域。`,
+                            severity: 'Error',
+                            snippet: nextSlideOp.value
+                        });
+                    } else if (nextSlideOp.value === 'V') {
+                        if (nextVertices.length !== 2) {
+                            this.errors.push({
+                                line: nextSlideOp.line,
+                                col: nextSlideOp.col,
+                                message: `V 字形 Slide 運算子 'V' 需要剛好 2 個目標頂點（例如：'6V42'），但發現了 ${nextVertices.length} 個。`,
+                                severity: 'Error',
+                                snippet: nextSlideOp.value + nextVertices.map(v => v.value).join('')
+                            });
+                        } else {
+                            if (prevEndToken) {
+                                this.validateSlidePath(prevEndToken, nextSlideOp, nextVertices);
+                            }
+                        }
+                    } else {
+                        if (nextVertices.length !== 1) {
+                            this.errors.push({
+                                line: nextSlideOp.line,
+                                col: nextSlideOp.col,
+                                message: `Slide 運算子 '${nextSlideOp.value}' 後方只能接 1 個目標按鍵/感應區域（例如：'1${nextSlideOp.value}5'），但發現了 ${nextVertices.length} 個（'${nextVertices.map(v => v.value).join('')}'）。`,
+                                severity: 'Error',
+                                snippet: nextSlideOp.value + nextVertices.map(v => v.value).join('')
+                            });
+                        } else {
+                            if (prevEndToken) {
+                                this.validateSlidePath(prevEndToken, nextSlideOp, nextVertices);
+                            }
+                        }
+                    }
+                    if (nextVertices.length > 0) {
+                        prevEndToken = nextVertices[nextVertices.length - 1];
+                    }
+                }
+
+                // Optional duration block and/or decorators (modifiers) in any order
+                while (!this.isAtEnd()) {
+                    const nextType = this.peek().type;
+                    if (nextType === TokenType.Duration) {
+                        hasDuration = true;
+                        this.validateDurationBlock(this.advance());
+                    } else if (nextType === TokenType.Decorator) {
+                        this.advance();
+                    } else {
+                        break;
+                    }
+                }
+
+                if (!hasDuration) {
                     this.errors.push({
-                        line: joinerToken.line,
-                        col: joinerToken.col,
-                        message: `Slide 連接符 '*' 後方必須緊接一個 Slide 運算子（例如：'-'、'>'、'<'）。`,
+                        line: slideOp.line,
+                        col: slideOp.col,
+                        message: `Slide 缺少持續時間標記（例如：'[8:1]'）。每個經由 '*' 連接的滑條路徑都必須指定時間。`,
                         severity: 'Error',
-                        snippet: '*' + (nextToken ? nextToken.value : '')
+                        snippet: slideOp.value
                     });
+                }
+
+                // Check if slide chain continues with a joiner '*'
+                if (!this.isAtEnd() && this.peek().type === TokenType.SlideJoiner) {
+                    const joinerToken = this.advance(); // consume '*'
+                        if (this.isAtEnd() || this.peek().type !== TokenType.Slide) {
+                        const nextToken = this.peek();
+                        this.errors.push({
+                            line: joinerToken.line,
+                            col: joinerToken.col,
+                            message: `Slide 連接符 '*' 後方必須緊接一個 Slide 運算子（例如：'-'、'>'、'<'）。`,
+                            severity: 'Error',
+                            snippet: '*' + (nextToken ? nextToken.value : '')
+                        });
+                        chainActive = false;
+                    }
+                } else {
                     chainActive = false;
                 }
-            } else {
-                chainActive = false;
+            }
+        } finally {
+            this.inSlideChain = false;
+        }
+    }
+
+    validateSlidePath(startTok, opTok, vertices) {
+        if (!startTok || vertices.length === 0) return;
+
+        const startVal = startTok.value;
+        const op = opTok.value;
+
+        // We only validate if start and vertices are single digits between '1' and '8'
+        const isButton = (val) => /^[1-8]$/.test(val);
+        if (!isButton(startVal)) return;
+
+        const S = parseInt(startVal, 10);
+
+        if (op === 'V') {
+            // V-slide has middle vertex (M) and end button (E)
+            // vertices[0] is M, vertices[1] is E
+            if (vertices.length < 2) return;
+            const mVal = vertices[0].value;
+            const eVal = vertices[1].value;
+
+            if (!isButton(mVal) || !isButton(eVal)) return;
+
+            const M = parseInt(mVal, 10);
+            const E = parseInt(eVal, 10);
+
+            // Rule 1: First leg S -> M: |S - M| in {2, 6} (modulo 8 difference is 2)
+            const diffSM = (M - S + 8) % 8;
+            if (diffSM !== 2 && diffSM !== 6) {
+                this.errors.push({
+                    line: vertices[0].line,
+                    col: vertices[0].col,
+                    message: `屈折 Slide 運算子 'V' 的起點 '${S}' 到折返點 '${M}' 的距離無效（必須為 2 格，例如：'6V42' 中的 '6' 到 '4'）。`,
+                    severity: 'Error',
+                    snippet: mVal
+                });
+            }
+
+            // Rule 2: Second leg M -> E:
+            // - E != M
+            // - |M - E| not in {1, 7} (cannot be adjacent)
+            // - If E - M === 2, S - M must be -2
+            // - If E - M === -2, S - M must be 2
+            const diffME = (E - M + 8) % 8;
+            if (diffME === 0) {
+                this.errors.push({
+                    line: vertices[1].line,
+                    col: vertices[1].col,
+                    message: `屈折 Slide 運算子 'V' 的終點 '${E}' 不可與折返點 '${M}' 相同。`,
+                    severity: 'Error',
+                    snippet: eVal
+                });
+            } else if (diffME === 1 || diffME === 7) {
+                this.errors.push({
+                    line: vertices[1].line,
+                    col: vertices[1].col,
+                    message: `屈折 Slide 運算子 'V' 的終點 '${E}' 與折返點 '${M}' 相鄰，這是無效的描繪路徑。`,
+                    severity: 'Error',
+                    snippet: eVal
+                });
+            } else if (diffME === 2) {
+                const diffSM_norm = (M - S + 8) % 8;
+                if (diffSM_norm !== 2) {
+                    this.errors.push({
+                        line: vertices[1].line,
+                        col: vertices[1].col,
+                        message: `屈折 Slide 運算子 'V' 自折返點 '${M}' 到終點 '${E}' 為順時針時，起點 '${S}' 到折返點 '${M}' 必須也是順時針。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                }
+            } else if (diffME === 6) {
+                const diffSM_norm = (M - S + 8) % 8;
+                if (diffSM_norm !== 6) {
+                    this.errors.push({
+                        line: vertices[1].line,
+                        col: vertices[1].col,
+                        message: `屈折 Slide 運算子 'V' 自折返點 '${M}' 到終點 '${E}' 為逆時針時，起點 '${S}' 到折返點 '${M}' 必須也是逆時針。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                }
+            }
+        } else {
+            const targetTok = vertices[vertices.length - 1];
+            const eVal = targetTok.value;
+            if (!isButton(eVal)) return;
+
+            const E = parseInt(eVal, 10);
+            const diff = (E - S + 8) % 8;
+
+            if (op === '-') {
+                if (diff === 0) {
+                    this.errors.push({
+                        line: targetTok.line,
+                        col: targetTok.col,
+                        message: `直線 Slide 運算子 '-' 的終點 '${E}' 不可與起點 '${S}' 相同。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                } else if (diff === 1 || diff === 7) {
+                    this.errors.push({
+                        line: targetTok.line,
+                        col: targetTok.col,
+                        message: `直線 Slide 運算子 '-' 的終點 '${E}' 與起點 '${S}' 相鄰，這是無效的。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                }
+            } else if (op === '^' || op === 'v') {
+                if (diff === 0) {
+                    this.errors.push({
+                        line: targetTok.line,
+                        col: targetTok.col,
+                        message: `${op === '^' ? '弧形' : 'v形'} Slide 運算子 '${op}' 的終點 '${E}' 不可與起點 '${S}' 相同。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                } else if (diff === 4) {
+                    this.errors.push({
+                        line: targetTok.line,
+                        col: targetTok.col,
+                        message: `${op === '^' ? '弧形' : 'v形'} Slide 運算子 '${op}' 的終點 '${E}' 不可位於起點 '${S}' 的正對向。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                }
+            } else if (op === 's' || op === 'z' || op === 'w') {
+                if (diff !== 4) {
+                    this.errors.push({
+                        line: targetTok.line,
+                        col: targetTok.col,
+                        message: `${op === 'w' ? '扇形' : (op === 's' ? 's形' : 'z形')} Slide 運算子 '${op}' 的終點 '${E}' 必須位於起點 '${S}' 的正對向（例如：'1${op}5'）。`,
+                        severity: 'Error',
+                        snippet: eVal
+                    });
+                }
             }
         }
     }
@@ -456,6 +660,12 @@ export class Parser {
         let errorPushed = false;
         for (let i = 0; i < this.tokens.length; i++) {
             const tok = this.tokens[i];
+            if (this.slideTokens && this.slideTokens.has(tok)) {
+                consecutiveCount = 0;
+                startToken = null;
+                errorPushed = false;
+                continue;
+            }
             if (tok.type === TokenType.Location && tok.value >= '1' && tok.value <= '8') {
                 if (consecutiveCount === 0) {
                     startToken = tok;
@@ -469,8 +679,8 @@ export class Parser {
                         message: `無分隔符的雙擊記號（如 '12'）最多只能包含兩個數字，多於兩個請使用 '/' 分隔（例如：'1/2/3'）。`,
                         severity: 'Error',
                         snippet: tok.value
-                    });
-                    errorPushed = true;
+                     });
+                     errorPushed = true;
                 }
             } else {
                 consecutiveCount = 0;

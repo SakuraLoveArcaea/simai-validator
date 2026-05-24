@@ -8,5 +8,8 @@
     ".": "./src/index.js"
   },
   "keywords": ["simai", "maimai", "chart", "validator", "parser"],
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "npx vitest run"
+  }
 }
