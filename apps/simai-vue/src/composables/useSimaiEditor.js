@@ -7,7 +7,7 @@
  *
  * Duration `[...]` always uses its own color in BOTH modes.
  */
-import { reactive, ref } from 'vue'
+import { reactive, ref, markRaw } from 'vue'
 import { validateSimaiFile, Tokenizer, TokenType } from 'simai-core'
 
 // ─── Default palette ─────────────────────────────────────────────
@@ -548,7 +548,7 @@ function createTab(name = null, content = '') {
   if (!monacoRef) return
   const id      = `tab_${Date.now()}`
   const tabName = name || `譜面 ${tabCounter++}.txt`
-  const model   = monacoRef.editor.createModel(content, 'simai-chart')
+  const model   = markRaw(monacoRef.editor.createModel(content, 'simai-chart'))
   model.onDidChangeContent(() => { if (activeTabId.value === id) validate() })
   tabs.push({ id, name: tabName, model })
   selectTab(id)

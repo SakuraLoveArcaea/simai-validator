@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, markRaw } from 'vue'
 import { useSimaiEditor } from '@/composables/useSimaiEditor'
 
 // ─── Composable API ────────────────────────────────────────────
@@ -207,7 +207,7 @@ onMounted(() => {
     // Create initial model & tab
     const defaultContent = chartOnly(PRESET_VALID)
     const firstTabId = 'tab_default'
-    const firstModel = monaco.editor.createModel(defaultContent, 'simai-chart')
+    const firstModel = markRaw(monaco.editor.createModel(defaultContent, 'simai-chart'))
     tabs.push({ id: firstTabId, name: '譜面 1.txt', model: firstModel })
     activeTabId.value = firstTabId
 
