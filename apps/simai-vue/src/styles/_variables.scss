@@ -1,0 +1,69 @@
+// ─── Design Tokens ─────────────────────────────────────────────
+$bg-main:     #0b0d13;
+$bg-card:     rgba(22, 28, 45, 0.45);
+$bg-editor:   #161c2d;
+$border:      rgba(255, 255, 255, 0.08);
+
+$text-primary:   #f5f7fa;
+$text-secondary: #90a4ae;
+
+$accent:      #7c4dff;
+$accent-glow: rgba(124, 77, 255, 0.35);
+
+// Default note colors (overridable via CSS custom properties at runtime)
+$color-tap:        #ff2e93;
+$color-hold:       #ff2e93;
+$color-slide:      #29b6f6;
+$color-touch:      #00bcd4;
+$color-touch-hold: #e040fb;
+$color-break:      #ffd600;
+$color-ex:         #00e5ff;
+$color-each:       #ffd600;
+$color-bpm:        #00e5ff;
+$color-subdiv:     #a7ffeb;
+$color-dur:        #b2ff59;
+$color-joiner:     #ea80fc;
+$color-error:      #ff1744;
+$color-comment:    #78909c;
+
+// Typography
+$font-ui:   'Outfit', sans-serif;
+$font-code: 'Fira Code', monospace;
+
+// Radii / Spacing
+$radius-sm:  6px;
+$radius-md:  10px;
+$radius-lg:  12px;
+$radius-xl:  16px;
+
+// Transitions
+$transition-fast: all 0.15s ease;
+$transition-base: all 0.2s ease;
+$transition-slow: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+// Mixins
+@mixin glass($blur: 12px) {
+  backdrop-filter: blur($blur);
+  -webkit-backdrop-filter: blur($blur);
+}
+
+@mixin card {
+  background: $bg-card;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  @include glass;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin scrollbar {
+  &::-webkit-scrollbar { width: 8px; height: 8px; }
+  &::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  &::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+}

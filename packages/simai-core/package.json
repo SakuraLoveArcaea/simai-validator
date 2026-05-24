@@ -1,0 +1,12 @@
+{
+  "name": "simai-core",
+  "version": "1.0.0",
+  "description": "simai 格式的詞法分析、語法剖析與驗證核心",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "keywords": ["simai", "maimai", "chart", "validator", "parser"],
+  "license": "MIT"
+}

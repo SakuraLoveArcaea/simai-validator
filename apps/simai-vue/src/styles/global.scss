@@ -1,0 +1,79 @@
+// Global base styles — not scoped, applied once
+@use './variables' as *;
+
+:root {
+  --bg-main:           #{$bg-main};
+  --bg-card:           #{$bg-card};
+  --bg-editor:         #{$bg-editor};
+  --border-color:      #{$border};
+  --text-primary:      #{$text-primary};
+  --text-secondary:    #{$text-secondary};
+  --accent:            #{$accent};
+
+  // Note colors (overridable at runtime via JS)
+  --color-tap:         #{$color-tap};
+  --color-hold:        #{$color-hold};
+  --color-slide:       #{$color-slide};
+  --color-touch:       #{$color-touch};
+  --color-touch-hold:  #{$color-touch-hold};
+  --color-break:       #{$color-break};
+  --color-ex:          #{$color-ex};
+  --color-each:        #{$color-each};
+  --color-dur:         #{$color-dur};
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: $bg-main;
+  color: $text-primary;
+  font-family: $font-ui;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { @include scrollbar; }
+
+// ─── Game Object Decoration Classes ──────────────────────────────
+// Applied by Monaco deltaDecorations in "object" color mode.
+// Duration is ALWAYS its own color in both modes.
+.deco-tap         { color: var(--color-tap)        !important; }
+.deco-hold        { color: var(--color-hold)       !important; }
+.deco-slide       { color: var(--color-slide)      !important; }
+.deco-touch       { color: var(--color-touch)      !important; }
+.deco-touch-hold  {
+  background: linear-gradient(90deg, #ff2e93 0%, #ffd600 35%, #00e676 70%, #29b6f6 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+.deco-break       { color: var(--color-break)      !important; }
+.deco-ex          { 
+  font-style: italic !important; 
+  font-weight: bold !important; 
+  text-shadow: 
+    0 0 1px #fff,
+    0 0 2px #fff,
+    0 0 3px rgba(255, 255, 255, 0.8) !important;
+}
+.deco-each        { color: var(--color-each)       !important; }
+.deco-each-left   {
+  color: var(--color-each) !important;
+}
+.deco-each-right  {
+  color: var(--color-each-right) !important;
+}
+.deco-dur         { color: var(--color-dur)        !important; }
+.deco-bpm         { color: #00e5ff                 !important; }
+.deco-subdiv      { color: #a7ffeb                 !important; }
+.deco-joiner      { color: #ea80fc                 !important; }
+.deco-comma       { color: rgba(255,255,255,0.25)  !important; }
+.deco-comma-super {
+  color: #00ff66 !important;
+  text-shadow: 0 0 2px rgba(0, 255, 102, 0.8) !important;
+}
+.deco-end         { color: #ff1744                 !important; font-weight: bold; }

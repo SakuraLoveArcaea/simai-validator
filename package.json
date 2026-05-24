@@ -1,0 +1,8 @@
+{
+  "name": "simai-validator-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ]
+}
