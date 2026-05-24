@@ -3,6 +3,7 @@
     <div class="logo">
       <span class="logo-glow">simai</span>
       <span class="logo-sub">驗證器</span>
+      <span class="logo-beta">Beta 版本</span>
     </div>
     <div class="actions">
       <!-- Mode Switch -->
@@ -69,6 +70,8 @@ function onFileImport(e) {
 }
 
 .logo {
+  display: flex;
+  align-items: center;
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: 1px;
@@ -82,6 +85,19 @@ function onFileImport(e) {
 .logo-sub {
   color: $text-primary;
   font-weight: 300;
+}
+
+.logo-beta {
+  font-size: 0.75rem;
+  background: rgba(124, 77, 255, 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(124, 77, 255, 0.35);
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-left: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 10px rgba(124, 77, 255, 0.1);
 }
 
 .actions {
