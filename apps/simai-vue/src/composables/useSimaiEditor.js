@@ -25,7 +25,7 @@ export const DEFAULT_COLORS = {
 
 // ─── Singleton state ─────────────────────────────────────────────
 const colors      = reactive({ ...DEFAULT_COLORS })
-const colorMode   = ref('token')   // 'token' | 'object'
+const colorMode   = ref('object')   // 'token' | 'object'
 const superComma  = ref(false)
 const bothSlide   = ref(false)
 const tabs        = reactive([])
